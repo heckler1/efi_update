@@ -1,6 +1,65 @@
-today=$(date +%Y_%m_%d)
-mkdir EFI_Update_$today
-cd EFI_Update_$today
+# Declare our functions
+
+# Returns a link to download a given kext
+install_kext () {
+  # This function takes a kext name, and installs it to the EFI
+  # Pretty much only works for acidanthera's kexts right now, but let's be honest, that's pretty much all the important ones
+
+  # If there are some options
+  case "${1}" in
+    AppleALC|Lilu|WhateverGreen)
+      $reponame=$1
+      # Get the latest GitHub releast
+      url=https://api.github.com/repos/acidanthera/$1/releases/latest
+      # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
+      url=$(curl $url | grep browser_download_url | grep RELEASE | awk '{print $2}')
+      url=${url%','} # remove trailing comma from the result
+      url=${url%'"'} # remove trailing " from the result
+      url=${url#'"'} # remove leading " from the result
+      # Download the kext
+      get_kext $url $reponame
+      # Get the path to the kext
+      kext_path=$(find $reponame -name $reponame.kext)
+      # Put the kext in the EFI partition
+      cp -r $kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
+      # Cleanup
+      rm -rf $reponame
+      ;;
+    VirtualSMC)
+      $reponame=$1
+      # Get the latest GitHub releast
+      url=https://api.github.com/repos/acidanthera/$1/releases/latest
+      # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
+      url=$(curl $url | grep browser_download_url | grep RELEASE | awk '{print $2}')
+      url=${url%','} # remove trailing comma from the result
+      url=${url%'"'} # remove trailing " from the result
+      url=${url#'"'} # remove leading " from the result
+      
+      # Download the kext
+      get_kext $url $reponame
+
+      # Get the path to the kext
+      kext_path=$(find $reponame -name $reponame.kext)
+      # Put the kext in the EFI partition
+      cp -r $kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
+
+      # Update the EFI driver
+      driver_path=$(find $reponame -name $reponame.efi)
+      cp $driver_path /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+      
+      # Update our SMC sensor kexts
+      for smc_kext in $(ls EFI_Backup_$today/kexts/Other/SMC*)
+      do
+        smc_kext_path=$(find $reponame -name $smc_kext.kext)
+        cp -r $smc_kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other
+      done
+      ;;
+    *)
+      usage
+      ;;
+    esac
+}
+
 
 clover_download() {
   ###
@@ -18,7 +77,7 @@ clover_download() {
   cloverrelease=${cloverrelease%*.tar.lzma}
 
   # Extract the tarball
-  tar --lzma -xf $cloverfile
+  tar --lzma -xf $cloverfile 2>&1 /dev/null
 
   # Delete the tarball
   rm $cloverfile
@@ -27,7 +86,10 @@ clover_download() {
   iso=Clover-v2.4k-$cloverrelease-X64.iso
 
   # Mount the ISO
-  hdiutil mount $iso
+  hdiutil mount $iso 2>&1 /dev/null
+  
+  # Return the volume name
+  export clover_source_volume=${iso%*.iso}
 
   ###
   # CODE TO DOWNLOAD THE ZIP
@@ -45,19 +107,9 @@ clover_download() {
 }
 
 get_kext() {
-  # This function takes a GitHub username and repo name as arguments, and downloads the latest release of the given repo
-  # Pretty much only works for acidanthera's kexts right now, but let's be honest, that's pretty much all the important ones
-
-  # Set friendly variable names
-  username=$1
+  # This function downloads a zip file, and extracts it
+  url=$1
   reponame=$2
-
-  # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
-  url=$(curl https://api.github.com/repos/$username/$reponame/releases/latest | grep browser_download_url | grep RELEASE | awk '{print $2}')
-  url=${url%','} # remove trailing comma from the result
-  url=${url%'"'} # remove trailing " from the result
-  url=${url#'"'} # remove leading " from the result
-
   # Download it
   wget $url
 
@@ -65,16 +117,10 @@ get_kext() {
   zip_name=${url##*'/'}
 
   # Extract the archive
-  unzip $zip_name
+  unzip $zip_name -d $reponame
 
   # Post-extraction cleanup
   rm $zip_name
-
-  # Put the kext in the EFI partition
-  cp -r $reponame.kext /Volumes/EFI/EFI/CLOVER/kexts/Other/
-
-  # More cleanup
-  rm -rf $reponame.*
 }
 
 efi_mount() {
@@ -98,34 +144,52 @@ efi_prep() {
 clover_prep() {
   # Build out a Clover skeleton
   mkdir -p /Volumes/EFI/EFI/BOOT /Volumes/EFI/EFI/CLOVER/kexts /Volumes/EFI/EFI/CLOVER/drivers64UEFI
-  cp -r /Volumes/${iso%*.iso}/EFI/BOOT/* /Volumes/EFI/EFI/BOOT
-  cp -r /Volumes/${iso%*.iso}/EFI/CLOVER/themes /Volumes/EFI/EFI/CLOVER/
-  cp -r /Volumes/${iso%*.iso}/EFI/CLOVER/tools /Volumes/EFI/EFI/CLOVER/
-  cp /Volumes/${iso%*.iso}/EFI/CLOVER/CLOVERX64.efi /Volumes/EFI/EFI/CLOVER/
+  cp -r /Volumes/$1/EFI/BOOT/* /Volumes/EFI/EFI/BOOT
+  cp -r /Volumes/$1/EFI/CLOVER/themes /Volumes/EFI/EFI/CLOVER/
+  cp -r /Volumes/$1/EFI/CLOVER/tools /Volumes/EFI/EFI/CLOVER/
+  cp /Volumes/$1/EFI/CLOVER/CLOVERX64.efi /Volumes/EFI/EFI/CLOVER/
 }
 
 clover_configure(){
+  clover_prep $1
   # Copy over our config.plist
   cp EFI_Backup_$today/CLOVER/config.plist /Volumes/EFI/EFI/CLOVER/
 
   # Get the latest drivers
-  for drivername in $(ls EFI_Backup_$today/CLOVER/drivers64UEFI)
+  # HFSPlus.efi is skipped because it doesn't change, though we could sum the one on GitHub against the current one
+  # VirtualSMC.efi is in the VirtualSMC release package, so it is updated when VirtualSMC.kext is updated
+  for drivername in $(ls EFI_Backup_$today/CLOVER/drivers64UEFI | grep -v HFSPlus.efi | grep -v VirtualSMC.efi)
   do
-    $driverpath=$(find -f /Volumes/${iso%*.iso}/EFI/CLOVER/drivers* -name $drivername)
+    $driverpath=$(find -f /Volumes/$1/EFI/CLOVER/drivers* -name $drivername)
     cp $driverpath /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
   done
 
+  # Bring HFSPlus.efi over from the backup
+  cp EFI_Backup_$today/drivers64UEFI/HFSPlus.efi /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+  
+  # If there is an ACPI folder, bring it over from the backup
+  # This makes sure our DSDTs and SSDTs are there
+  if [ -d EFI_Backup_$today/ACPI ]
+  then
+    cp -r EFI_Backup_$today/ACPI /Volumes/EFI/EFI/CLOVER/
+  fi
+
   # Get the latest versions of all our kexts
-  ### TODO Map users to kexts
-  ### FOR LOOP FOR THIS
-  get_kext 
+  # SMC sensor kexts are accounted for in the VirtualSMC kext update
+  for kext in $(ls EFI_Backup_$today/kexts/Other/ | grep -v SMC*.kext)
+  do
+    install_kext ${kext%*.kext}
+  done
 }
 
+# Now run it all
+today=$(date +%Y_%m_%d)
+mkdir EFI_Update_$today
+cd EFI_Update_$today
 clover_download
 efi_mount
 efi_prep
-clover_prep
-clover_configure
+clover_configure $clover_source_volume
 
 
 #install clover with correct drivers
@@ -137,6 +201,4 @@ clover_configure
 #    oem
 #    rom
 #    kexts/10.*
-#copy hfsplus from the backup to the new install in efi partition
 #check virtualsmc version between backup and downloaded release
-#install config.plist from backup
