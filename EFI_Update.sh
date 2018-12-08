@@ -1,8 +1,9 @@
-# Declare our functions
+# This script updates the Clover installation, Clover drivers, and kexts on your EFI partition
+# It keeps the config.plist, ACPI folder, and any kexts that it can't download 
 
-# Returns a link to download a given kext
+# Declare our functions
 install_kext () {
-  # This function takes a kext name, and installs it to the EFI
+  # This function takes a kext name, and install the latest version of it it to the EFI
   # Pretty much only works for acidanthera's kexts right now, but let's be honest, that's pretty much all the important ones
 
   # If there are some options
@@ -17,7 +18,7 @@ install_kext () {
       url=${url%'"'} # remove trailing " from the result
       url=${url#'"'} # remove leading " from the result
       # Download the kext
-      get_kext $url $reponame
+      get_zip $url $reponame
       # Get the path to the kext
       kext_path=$(find $reponame -name $reponame.kext)
       # Put the kext in the EFI partition
@@ -36,7 +37,7 @@ install_kext () {
       url=${url#'"'} # remove leading " from the result
       
       # Download the kext
-      get_kext $url $reponame
+      get_zip $url $reponame
 
       # Get the path to the kext
       kext_path=$(find $reponame -name $reponame.kext)
@@ -61,7 +62,6 @@ install_kext () {
       ;;
     esac
 }
-
 
 clover_download() {
   ###
@@ -108,7 +108,7 @@ clover_download() {
   #unzip $clovername
 }
 
-get_kext() {
+get_zip() {
   # This function downloads a zip file, and extracts it
   url=$1
   reponame=$2
@@ -147,7 +147,6 @@ clover_prep() {
   # Build out a Clover skeleton
   mkdir -p /Volumes/EFI/EFI/BOOT /Volumes/EFI/EFI/CLOVER/kexts/Other /Volumes/EFI/EFI/CLOVER/drivers64UEFI
   cp -r /Volumes/$1/EFI/BOOT/* /Volumes/EFI/EFI/BOOT
-  cp -r /Volumes/$1/EFI/CLOVER/themes /Volumes/EFI/EFI/CLOVER/
   cp -r /Volumes/$1/EFI/CLOVER/tools /Volumes/EFI/EFI/CLOVER/
   cp /Volumes/$1/EFI/CLOVER/CLOVERX64.efi /Volumes/EFI/EFI/CLOVER/
 }
@@ -193,15 +192,3 @@ efi_mount
 efi_prep
 clover_configure $clover_source_volume
 diskutil unmount $clover_source_volume
-
-
-#install clover with correct drivers
-#delete 
-#    clover install log
-#    if all acpi folders in the backup are empty, delete acpi
-#    doc
-#    misc
-#    oem
-#    rom
-#    kexts/10.*
-#check virtualsmc version between backup and downloaded release
