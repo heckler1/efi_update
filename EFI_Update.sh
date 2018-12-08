@@ -1,5 +1,15 @@
 # This script updates the Clover installation, Clover drivers, and kexts on your EFI partition
 # It keeps the config.plist, ACPI folder, and any kexts that it can't download 
+set -e
+
+checkforutil () {
+  command -v ${1} &> /dev/null
+  if [[ ${?} != 0 ]]
+  then
+    echo "The utility ${1} is missing. Please confirm that it is installed, and your \$PATH is correct."
+    exit 1
+  fi
+}
 
 # Declare our functions
 install_kext () {
@@ -10,6 +20,7 @@ install_kext () {
   case "${1}" in
     AppleALC|Lilu|WhateverGreen)
       reponame=$1
+
       # Get the latest GitHub releast
       url=https://api.github.com/repos/acidanthera/$1/releases/latest
       # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
@@ -17,17 +28,21 @@ install_kext () {
       url=${url%','} # remove trailing comma from the result
       url=${url%'"'} # remove trailing " from the result
       url=${url#'"'} # remove leading " from the result
+
       # Download the kext
       get_zip $url $reponame
+
       # Get the path to the kext
       kext_path=$(find $reponame -name $reponame.kext)
       # Put the kext in the EFI partition
       cp -r $kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
+
       # Cleanup
       rm -rf $reponame
       ;;
     VirtualSMC)
       reponame=$1
+
       # Get the latest GitHub releast
       url=https://api.github.com/repos/acidanthera/$1/releases/latest
       # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
@@ -54,6 +69,9 @@ install_kext () {
         smc_kext_path=$(find $reponame -name $smc_kext)
         cp -r $smc_kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
       done
+
+      # Cleanup
+      rm -rf $reponame
       ;;
     *)
       echo "I don't know how to download ${1}.kext"
@@ -135,9 +153,7 @@ efi_mount() {
 
 efi_prep() {
   # Backup the current EFI, we need it for reference anyway
-  set -e
   cp -r /Volumes/EFI/EFI EFI_Backup_$today
-  set +e
 
   # Clean out the EFI partition for a fresh installation of Clover
   rm -rf /Volumes/EFI/EFI
@@ -184,6 +200,7 @@ clover_configure(){
 }
 
 # Now run it all
+checkforutil wget
 today=$(date +%Y_%m_%d)
 mkdir EFI_Update_$today
 cd EFI_Update_$today
