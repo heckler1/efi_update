@@ -106,13 +106,9 @@ install_kext () {
       reponame=$1
       
       logging "Getting download URL for $reponame..."
-      # Get the latest GitHub releast
+      # Use the GitHub API to get the link to the latest release of the given repo
       url=https://api.github.com/repos/acidanthera/$1/releases/latest
-      # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
-      url=$(curl $url 2> /dev/null | grep browser_download_url | grep RELEASE | awk '{print $2}')
-      url=${url%','} # remove trailing comma from the result
-      url=${url%'"'} # remove trailing " from the result
-      url=${url#'"'} # remove leading " from the result
+      url=$(curl $url 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["assets"][1]["browser_download_url"]')
 
       # Download the kext
       get_zip $url $reponame
@@ -148,14 +144,11 @@ install_kext () {
       reponame=$1
       
       logging "Getting download URL for $reponame..."
-      # Get the latest GitHub releast
+      # Use the GitHub API to get the link to the latest release of the given repo
       url=https://api.github.com/repos/alexandred/$1/releases/latest
-      # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
-      url=$(curl $url 2> /dev/null | grep browser_download_url | grep -v Debug | awk '{print $2}')
-      url=${url%','} # remove trailing comma from the result
-      url=${url%'"'} # remove trailing " from the result
-      url=${url#'"'} # remove leading " from the result
+      url=$(curl $url 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["assets"][1]["browser_download_url"]')
       
+      # Download the kext
       get_zip $url $reponame
 
       logging "Installing $reponame.kext..."
@@ -163,13 +156,36 @@ install_kext () {
       kext_path=$(find $reponame -name $reponame.kext)
       # Put the kext in the EFI partition
       cp -r $kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
-      
+
       for i2c_kext in $(ls EFI_Backup_$today/CLOVER/kexts/Other/ | grep -E "VoodooI2C[A-Z]")
       do
         logging "Installing $i2c_kext..."
         i2c_kext_path=$(find $reponame -name $i2c_kext)
         cp -r $i2c_kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
       done
+
+      logging "Deleting leftover files..."
+      # Cleanup
+      rm -rf $reponame
+      ;;
+    RealtekRTL8111)
+      reponame=$1
+
+      # Use the BitBucket API to get the download link of the latest release
+      logging "Installing $reponame.kext"
+      url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-realtek-network/downloads
+      url=$(curl $url 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
+      
+      # Download the kext
+      get_zip $url $reponame
+
+      logging "Installing $reponame.kext..."
+      # Put the kext in the EFI partition
+      cp -r $reponame/Release/$reponame.kext /Volumes/EFI/EFI/CLOVER/kexts/Other/
+
+      logging "Deleting leftover files..."
+      # Cleanup
+      rm -rf $reponame
       ;;
     *)
       logging "I don't know how to download ${1}.kext"
@@ -248,5 +264,7 @@ efi_prep
 clover_configure $clover_source_volume
 logging "Unmounting Clover ISO..."
 diskutil unmount $clover_source_volume &> /dev/null
+logging "Deleting Clover ISO..."
+rm $clover_source_volume.iso
 logging "Update complete."
 mv EFI_Update_$today.log /Volumes/EFI/EFI/
