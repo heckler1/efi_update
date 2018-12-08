@@ -8,7 +8,7 @@ install_kext () {
   # If there are some options
   case "${1}" in
     AppleALC|Lilu|WhateverGreen)
-      $reponame=$1
+      reponame=$1
       # Get the latest GitHub releast
       url=https://api.github.com/repos/acidanthera/$1/releases/latest
       # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
@@ -26,7 +26,7 @@ install_kext () {
       rm -rf $reponame
       ;;
     VirtualSMC)
-      $reponame=$1
+      reponame=$1
       # Get the latest GitHub releast
       url=https://api.github.com/repos/acidanthera/$1/releases/latest
       # Use the GitHub API (plus a little parameter expansion magic) to get the URL of the latest release
@@ -44,18 +44,20 @@ install_kext () {
       cp -r $kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
 
       # Update the EFI driver
-      driver_path=$(find $reponame -name $reponame.efi)
+      driver_path=$(find $reponame -name VirtualSmc.efi)
       cp $driver_path /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
       
       # Update our SMC sensor kexts
-      for smc_kext in $(ls EFI_Backup_$today/kexts/Other/SMC*)
+      for smc_kext in $(ls EFI_Backup_$today/CLOVER/kexts/Other/ | grep -E "(^SMC)")
       do
-        smc_kext_path=$(find $reponame -name $smc_kext.kext)
-        cp -r $smc_kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other
+        smc_kext_path=$(find $reponame -name $smc_kext)
+        cp -r $smc_kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
       done
       ;;
     *)
-      usage
+      echo "I don't know how to download ${1}.kext"
+      echo "Just keeping the old version"
+      cp -r EFI_Backup_$today/CLOVER/kexts/Other/${1}.kext /Volumes/EFI/EFI/CLOVER/kexts/Other/
       ;;
     esac
 }
@@ -77,7 +79,7 @@ clover_download() {
   cloverrelease=${cloverrelease%*.tar.lzma}
 
   # Extract the tarball
-  tar --lzma -xf $cloverfile 2>&1 /dev/null
+  tar --lzma -xf $cloverfile
 
   # Delete the tarball
   rm $cloverfile
@@ -86,7 +88,7 @@ clover_download() {
   iso=Clover-v2.4k-$cloverrelease-X64.iso
 
   # Mount the ISO
-  hdiutil mount $iso 2>&1 /dev/null
+  hdiutil mount $iso
   
   # Return the volume name
   export clover_source_volume=${iso%*.iso}
@@ -99,7 +101,7 @@ clover_download() {
   #wgetoutput=$(wget https://sourceforge.net/projects/cloverefiboot/files/latest/download -O latest_clover.zip 2>&1)
 
   # Match regex for Clover zip file name
-  #$clovername=$(echo $wgetoutput | grep -Eo -m 1 "(Clover_v2.4k_r.....zip)")
+  #clovername=$(echo $wgetoutput | grep -Eo -m 1 "(Clover_v2.4k_r.....zip)")
   # Rename the downloaded file
   #mv latest_clover.zip $clovername
   # Unzip the file
@@ -125,10 +127,10 @@ get_kext() {
 
 efi_mount() {
   # Get the EFI partition on the primary disk
-  $efi=$(diskutil list | grep disk0 | grep EFI | awk '{print $6}')
+  efi=$(diskutil list | grep disk0 | grep EFI | awk '{print $6}')
 
   # Mount it
-  diskutil mount $efi
+  sudo diskutil mount $efi
 }
 
 efi_prep() {
@@ -143,7 +145,7 @@ efi_prep() {
 
 clover_prep() {
   # Build out a Clover skeleton
-  mkdir -p /Volumes/EFI/EFI/BOOT /Volumes/EFI/EFI/CLOVER/kexts /Volumes/EFI/EFI/CLOVER/drivers64UEFI
+  mkdir -p /Volumes/EFI/EFI/BOOT /Volumes/EFI/EFI/CLOVER/kexts/Other /Volumes/EFI/EFI/CLOVER/drivers64UEFI
   cp -r /Volumes/$1/EFI/BOOT/* /Volumes/EFI/EFI/BOOT
   cp -r /Volumes/$1/EFI/CLOVER/themes /Volumes/EFI/EFI/CLOVER/
   cp -r /Volumes/$1/EFI/CLOVER/tools /Volumes/EFI/EFI/CLOVER/
@@ -158,25 +160,25 @@ clover_configure(){
   # Get the latest drivers
   # HFSPlus.efi is skipped because it doesn't change, though we could sum the one on GitHub against the current one
   # VirtualSMC.efi is in the VirtualSMC release package, so it is updated when VirtualSMC.kext is updated
-  for drivername in $(ls EFI_Backup_$today/CLOVER/drivers64UEFI | grep -v HFSPlus.efi | grep -v VirtualSMC.efi)
+  for drivername in $(ls EFI_Backup_$today/CLOVER/drivers64UEFI | grep -v HFSPlus.efi | grep -v VirtualSmc.efi)
   do
-    $driverpath=$(find -f /Volumes/$1/EFI/CLOVER/drivers* -name $drivername)
+    driverpath=$(find -f /Volumes/$1/EFI/CLOVER/drivers* -name $drivername)
     cp $driverpath /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
   done
 
   # Bring HFSPlus.efi over from the backup
-  cp EFI_Backup_$today/drivers64UEFI/HFSPlus.efi /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+  cp EFI_Backup_$today/CLOVER/drivers64UEFI/HFSPlus.efi /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
   
   # If there is an ACPI folder, bring it over from the backup
   # This makes sure our DSDTs and SSDTs are there
-  if [ -d EFI_Backup_$today/ACPI ]
+  if [ -d EFI_Backup_$today/CLOVER/ACPI ]
   then
-    cp -r EFI_Backup_$today/ACPI /Volumes/EFI/EFI/CLOVER/
+    cp -r EFI_Backup_$today/CLOVER/ACPI /Volumes/EFI/EFI/CLOVER/
   fi
 
   # Get the latest versions of all our kexts
   # SMC sensor kexts are accounted for in the VirtualSMC kext update
-  for kext in $(ls EFI_Backup_$today/kexts/Other/ | grep -v SMC*.kext)
+  for kext in $(ls EFI_Backup_$today/CLOVER/kexts/Other/ | grep -vE "(^SMC)")
   do
     install_kext ${kext%*.kext}
   done
@@ -190,6 +192,7 @@ clover_download
 efi_mount
 efi_prep
 clover_configure $clover_source_volume
+diskutil unmount $clover_source_volume
 
 
 #install clover with correct drivers
