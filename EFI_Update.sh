@@ -168,12 +168,23 @@ install_kext () {
       # Cleanup
       rm -rf $reponame
       ;;
-    RealtekRTL8111)
+    RealtekRTL8111|IntelMausiEthernet|VoodooPS2Controller)
       reponame=$1
 
+      logging "Getting download URL for $reponame..."
+      case "${1}" in
+        RealtekRTL8111)
+        url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-realtek-network/downloads
+        ;;
+        IntelMausiEthernet)
+        url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-intel-network/downloads
+        ;;
+        VoodooPS2Controller)
+        url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-voodoo-ps2-controller/downloads
+        ;;
+      esac
+
       # Use the BitBucket API to get the download link of the latest release
-      logging "Installing $reponame.kext"
-      url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-realtek-network/downloads
       url=$(curl $url 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
       
       # Download the kext
@@ -183,6 +194,58 @@ install_kext () {
       # Put the kext in the EFI partition
       cp -r $reponame/Release/$reponame.kext /Volumes/EFI/EFI/CLOVER/kexts/Other/
 
+      logging "Deleting leftover files..."
+      # Cleanup
+      rm -rf $reponame
+      ;;
+    FakePCIID)
+      reponame=$1
+
+      logging "Getting download URL for $reponame..."
+      url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-fake-pci-id/downloads
+      # Use the BitBucket API to get the download link of the latest release
+      url=$(curl $url 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
+      
+      # Download the kext
+      get_zip $url $reponame
+
+      logging "Installing $reponame.kext..."
+      # Put the kext in the EFI partition
+      cp -r $reponame/Release/$reponame.kext /Volumes/EFI/EFI/CLOVER/kexts/Other/
+      
+      for fakepci_kext in $(ls EFI_Backup_$today/CLOVER/kexts/Other/ | grep -E "FakePCIID_[A-Z]")
+      do
+        logging "Installing $fakepci_kext..."
+        fakepci_kext_path=$(find $reponame -name $fakepci_kext)
+        cp -r $fakepci_kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
+      done
+      
+      logging "Deleting leftover files..."
+      # Cleanup
+      rm -rf $reponame
+      ;;
+    BrcmPatchRAM*)
+      reponame=$1
+
+      logging "Getting download URL for $reponame..."
+      url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-brcmpatchram/downloads
+      # Use the BitBucket API to get the download link of the latest release
+      url=$(curl $url 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
+      
+      # Download the kext
+      get_zip $url $reponame
+
+      logging "Installing $reponame.kext..."
+      # Put the kext in the EFI partition
+      cp -r $reponame/Release/$reponame.kext /Volumes/EFI/EFI/CLOVER/kexts/Other/
+
+      for brcm_kext in $(ls EFI_Backup_$today/CLOVER/kexts/Other/ | grep -E "BrcmFirmware[A-Z]" | grep -v $reponame.kext)
+      do
+        logging "Installing $brcm_kext..."
+        brcm_kext_path=$(find $reponame -name $brcm_kext)
+        cp -r $brcm_kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
+      done
+      
       logging "Deleting leftover files..."
       # Cleanup
       rm -rf $reponame
@@ -247,7 +310,7 @@ clover_configure(){
   # Get the latest versions of all our kexts
   # SMC sensor kexts are accounted for in the VirtualSMC kext update
   # The extra I2C kexts are accounted for in the VoodooI2C kext update
-  for kext in $(ls EFI_Backup_$today/CLOVER/kexts/Other/ | grep -vE "(^SMC)" | grep -vE "VoodooI2C[A-Z]")
+  for kext in $(ls EFI_Backup_$today/CLOVER/kexts/Other/ | grep -vE "(^SMC)" | grep -vE "VoodooI2C[A-Z]" | grep -vE "FakePCIID_[A-Z]" |  grep -vE "BrcmFirmware[A-Z]")
   do
     install_kext ${kext%*.kext}
   done
