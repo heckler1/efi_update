@@ -311,7 +311,13 @@ clover_configure(){
 
   # Bring HFSPlus.efi over from the backup
   logging "Copying HFSPlus.efi from the EFI backup..."
-  cp EFI_Backup_$today/CLOVER/drivers64UEFI/HFSPlus.efi /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+  
+  if [ -f EFI_Backup_$today/CLOVER/drivers64UEFI/HFSPlus.efi ]
+  then
+    cp EFI_Backup_$today/CLOVER/drivers64UEFI/HFSPlus.efi /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+  else
+    echo "No HFSPlus.efi found in the old Clover folder, skipping..."
+  fi
   
   # If there is an ACPI folder, bring it over from the backup
   # This makes sure our DSDTs and SSDTs are there
