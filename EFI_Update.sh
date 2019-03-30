@@ -29,7 +29,7 @@ clover_download() {
   
   # Download the latest Clover ISO
   logging "Downloading the latest Clover..."
-  wget https://sourceforge.net/projects/cloverefiboot/files/Bootable_ISO/$cloverfile/download -O $cloverfile &> /dev/null
+  curl https://sourceforge.net/projects/cloverefiboot/files/Bootable_ISO/$cloverfile/download -o $cloverfile &> /dev/null
   
   # Get the release number from the tarball's name
   cloverrelease=${cloverfile#CloverISO-*}
@@ -58,10 +58,10 @@ clover_download() {
   # UNUSED
   ###
   # Get latest Clover zip
-  #wgetoutput=$(wget https://sourceforge.net/projects/cloverefiboot/files/latest/download -O latest_clover.zip 2>&1)
+  #curloutput=$(curl https://sourceforge.net/projects/cloverefiboot/files/latest/download -o latest_clover.zip 2>&1)
 
   # Match regex for Clover zip file name
-  #clovername=$(echo $wgetoutput | grep -Eo -m 1 "(Clover_v2.4k_r.....zip)")
+  #clovername=$(echo $curloutput | grep -Eo -m 1 "(Clover_v2.4k_r.....zip)")
   # Rename the downloaded file
   #mv latest_clover.zip $clovername
   # Unzip the file
@@ -264,7 +264,7 @@ get_zip() {
   reponame=$2
   # Download it
   logging "Downloading $reponame..."
-  wget $url &> /dev/null
+  curl -OJ $url &> /dev/null
 
   # Get the name of the file we downloaded
   zip_name=${url##*'/'}
@@ -317,7 +317,6 @@ clover_configure(){
 }
 
 # Now run it all
-checkforutil wget
 today=$(date +%Y_%m_%d)
 mkdir EFI_Update_$today
 cd EFI_Update_$today
