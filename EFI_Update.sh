@@ -82,9 +82,15 @@ efi_mount() {
   efi_disk_id=${efi_disk_id%s*}
 
   efi_part_id=$(diskutil list | grep "${efi_disk_id}" | grep "EFI" | awk '{ print $NF}')
-  # Mount it
-  logging "Mounting the EFI partition at ${efi_part_id}..."
-  sudo diskutil mount $efi_part_id
+
+  if [ $1 = "unmount" ]
+  then
+    logging "Unmounting the EFI partition at ${efi_part_id}..."
+    sudo diskutil unmount $efi_part_id
+  else
+    logging "Mounting the EFI partition at ${efi_part_id}..."
+    sudo diskutil mount $efi_part_id
+  fi
 }
 
 efi_prep() {
@@ -278,7 +284,7 @@ get_zip() {
   reponame=$2
   # Download it
   logging "Downloading $reponame..."
-  curl -OJ $url &> /dev/null
+  curl -OJL $url &> /dev/null
 
   # Get the name of the file we downloaded
   zip_name=${url##*'/'}
@@ -350,3 +356,4 @@ logging "Deleting Clover ISO..."
 rm $clover_source_volume.iso
 logging "Update complete."
 mv EFI_Update_$today.log /Volumes/EFI/EFI/
+efi_mount unmount
