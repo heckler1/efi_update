@@ -83,7 +83,7 @@ efi_mount() {
 
   efi_part_id=$(diskutil list | grep "${efi_disk_id}" | grep "EFI" | awk '{ print $NF}')
 
-  if [ $1 = "unmount" ]
+  if [ "$1" = "unmount" ]
   then
     logging "Unmounting the EFI partition at ${efi_part_id}..."
     sudo diskutil unmount $efi_part_id
@@ -140,7 +140,7 @@ install_kext () {
       cp -r $kext_path /Volumes/EFI/EFI/CLOVER/kexts/Other/
       
       # Make a few special provisions for VirtualSMC
-      if [ $1 = "VirtualSMC" ]
+      if [ "$1" = "VirtualSMC" ]
       then
         logging "Installing VirtualSmc.efi..."
         # Update the EFI driver
