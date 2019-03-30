@@ -29,7 +29,7 @@ clover_download() {
   
   # Download the latest Clover ISO
   logging "Downloading the latest Clover..."
-  curl https://sourceforge.net/projects/cloverefiboot/files/Bootable_ISO/$cloverfile/download -o $cloverfile &> /dev/null
+  curl -L https://sourceforge.net/projects/cloverefiboot/files/Bootable_ISO/$cloverfile/download -o $cloverfile &> /dev/null
   
   # Get the release number from the tarball's name
   cloverrelease=${cloverfile#CloverISO-*}
@@ -69,12 +69,22 @@ clover_download() {
 }
 
 efi_mount() {
+  boot_disk_name=$(system_profiler SPSoftwareDataType \
+  | grep "Boot Volume" \
+  | awk -F ":" '{ print $2 }')
   # Get the EFI partition on the primary disk
-  efi=$(diskutil list | grep disk0 | grep EFI | awk '{print $6}')
+  boot_disk_id=$(diskutil list | grep "${boot_disk_name}" | awk '{print $NF}')
 
+  boot_disk_id=${boot_disk_id%s*}
+
+  efi_disk_id=$(diskutil list | grep "Container ${boot_disk_id}" | awk '{ print $NF}')
+  
+  efi_disk_id=${efi_disk_id%s*}
+
+  efi_part_id=$(diskutil list | grep "${efi_disk_id}" | grep "EFI" | awk '{ print $NF}')
   # Mount it
-  logging "Mounting the EFI partition at $efi..."
-  sudo diskutil mount $efi
+  logging "Mounting the EFI partition at ${efi_part_id}..."
+  sudo diskutil mount $efi_part_id
 }
 
 efi_prep() {
