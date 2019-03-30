@@ -90,7 +90,11 @@ efi_mount() {
 efi_prep() {
   # Backup the current EFI, we need it for reference anyway
   logging "Backing up the current EFI folder..."
-  cp -r /Volumes/EFI/EFI EFI_Backup_$today
+  if ! (cp -r /Volumes/EFI/EFI EFI_Backup_$today)
+  then
+    echo "No current EFI folder found, this script needs a working EFI partition for reference."
+    exit 1
+  fi
 
   # Clean out the EFI partition for a fresh installation of Clover
   logging "Cleaning out EFI partition..."
