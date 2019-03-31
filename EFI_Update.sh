@@ -312,7 +312,7 @@ clover_configure(){
   for drivername in $(ls "EFI_Backup_${today}/CLOVER/drivers64UEFI" | grep -v HFSPlus.efi | grep -v VirtualSmc.efi)
   do
     logging "Installing ${drivername}..."
-    local driverpath=$(find -f /Volumes/${1}/EFI/CLOVER/drivers* -name "${drivername}")
+    local driverpath=$(find -f /Volumes/${1}/EFI/CLOVER/drivers* -name "${drivername}" | grep "UEFI")
     cp "${driverpath}" /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
   done
 
