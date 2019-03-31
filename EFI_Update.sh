@@ -122,7 +122,7 @@ install_kext () {
 
   # If there are some options
   case "${1}" in
-    AppleALC|Lilu|WhateverGreen|VirtualSMC)
+    AppleALC|Lilu|WhateverGreen|VirtualSMC|AirportBrcmFixup)
       reponame=$1
       
       logging "Getting download URL for $reponame..."
