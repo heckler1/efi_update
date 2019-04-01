@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 # This script updates the Clover installation, Clover drivers, and kexts on your EFI partition
-# It keeps the config.plist, ACPI folder, and any kexts that it can't download 
+# It keeps the config.plist, ACPI folder, and any kexts that it can't download
+
+# Prevent warnings about piping ls to grep
+# This is necessary for our usecase
+#shellcheck disable=SC2010
 
 # Stop if things start going wrong
 set -e
