@@ -20,33 +20,34 @@ checkforutil () {
 }
 
 clover_download() {
-  ###
-  # CODE TO DOWNLOAD THE ISO
-  ###
+  # This function downloads the latest ISO tarball for Clover, and extracts it
 
   # Get the name of the latest Clover ISO
   logging "Getting the URL of the latest Clover..."
-  local cloverfile=$(curl https://sourceforge.net/projects/cloverefiboot/files/Bootable_ISO/ 2> /dev/null |  grep -Eo -m 1 "(CloverISO-.....tar.lzma)")
+  local clover_file
+  clover_file=$(curl https://sourceforge.net/projects/cloverefiboot/files/Bootable_ISO/ 2> /dev/null |  grep -Eo -m 1 "(CloverISO-.....tar.lzma)")
   
   # Download the latest Clover ISO
   logging "Downloading the latest Clover..."
-  curl -L "https://sourceforge.net/projects/cloverefiboot/files/Bootable_ISO/${cloverfile}/download" -o "${cloverfile}" &> /dev/null
+  curl -L "https://sourceforge.net/projects/cloverefiboot/files/Bootable_ISO/${clover_file}/download" -o "${clover_file}" &> /dev/null
   
   # Get the release number from the tarball's name
-  local cloverrelease=${cloverfile#CloverISO-*}
-  local cloverrelease=${cloverrelease%*.tar.lzma}
-  logging "Latest Clover is r${cloverrelease}."
+  local clover_release
+  clover_release=${clover_file#CloverISO-*}
+  clover_release=${clover_release%*.tar.lzma}
+  logging "Latest Clover is r${clover_release}."
 
   # Extract the tarball
   logging "Extracting Clover tarball..."
-  tar --lzma -xf "${cloverfile}" &> /dev/null
+  tar --lzma -xf "${clover_file}" &> /dev/null
 
   # Delete the tarball
   logging "Deleting the tarball now that we've extracted the ISO..."
-  rm "${cloverfile}"
+  rm "${clover_file}"
 
   # Set the ISO name, based on the release name
-  local iso=Clover-v2.4k-${cloverrelease}-X64.iso
+  local iso
+  iso=Clover-v2.4k-${clover_release}-X64.iso
 
   # Mount the ISO
   logging "Mounting the Clover ISO..."
@@ -54,35 +55,33 @@ clover_download() {
   
   # Return the volume name
   export clover_source_volume=${iso%*.iso}
-  ###
-  # CODE TO DOWNLOAD THE ZIP
-  # UNUSED
-  ###
-  # Get latest Clover zip
-  #curloutput=$(curl https://sourceforge.net/projects/cloverefiboot/files/latest/download -o latest_clover.zip 2>&1)
-
-  # Match regex for Clover zip file name
-  #clovername=$(echo $curloutput | grep -Eo -m 1 "(Clover_v2.4k_r.....zip)")
-  # Rename the downloaded file
-  #mv latest_clover.zip $clovername
-  # Unzip the file
-  #unzip $clovername
 }
 
 efi_mount() {
-  local boot_disk_name=$(system_profiler SPSoftwareDataType \
-  | grep "Boot Volume" \
-  | awk -F ":" '{ print $2 }')
+  local boot_disk_name
+  boot_disk_name=$(system_profiler SPSoftwareDataType \
+    | grep "Boot Volume" \
+    | awk -F ":" '{ print $2 }')
   # Get the EFI partition on the primary disk
-  local boot_disk_id=$(diskutil list | grep "${boot_disk_name}" | awk '{print $NF}')
+  local boot_disk_id
+  boot_disk_id=$(diskutil list \
+    | grep "${boot_disk_name}" \
+    | awk '{print $NF}')
 
-  local boot_disk_id=${boot_disk_id%s*}
+  boot_disk_id=${boot_disk_id%s*}
 
-  local efi_disk_id=$(diskutil list | grep "Container ${boot_disk_id}" | awk '{ print $NF}')
+  local efi_disk_id
+  efi_disk_id=$(diskutil list \
+    | grep "Container ${boot_disk_id}" \
+    | awk '{ print $NF}')
   
-  local efi_disk_id=${efi_disk_id%s*}
+  efi_disk_id=${efi_disk_id%s*}
 
-  local efi_part_id=$(diskutil list | grep "${efi_disk_id}" | grep "EFI" | awk '{ print $NF}')
+  local efi_part_id
+  efi_part_id=$(diskutil list \
+    | grep "${efi_disk_id}" \
+    | grep "EFI" \
+    | awk '{ print $NF}')
 
   if [ "${1}" = "unmount" ]
   then
@@ -124,19 +123,24 @@ install_kext () {
   # If there are some options
   case "${1}" in
     AppleALC|Lilu|WhateverGreen|VirtualSMC|AirportBrcmFixup)
-      local reponame=${1}
+      local reponame
+      reponame=${1}
       
       logging "Getting download URL for ${reponame}..."
       # Use the GitHub API to get the link to the latest release of the given repo
-      local url=https://api.github.com/repos/acidanthera/${reponame}/releases/latest
-      local url=$(curl "${url}" 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["assets"][1]["browser_download_url"]')
+      local url
+      url=https://api.github.com/repos/acidanthera/${reponame}/releases/latest
+      url=$(curl "${url}" 2> /dev/null \
+        | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["assets"][1]["browser_download_url"]')
 
       # Download the kext
       get_zip "${url}" "${reponame}"
 
       logging "Installing ${reponame}.kext..."
       # Get the path to the kext
-      local kext_path=$(find "${reponame}" -name "${reponame}.kext")
+      local kext_path
+      kext_path=$(find "${reponame}" -name "${reponame}.kext")
+
       # Put the kext in the EFI partition
       cp -r "${kext_path}" /Volumes/EFI/EFI/CLOVER/kexts/Other/
       
@@ -145,14 +149,16 @@ install_kext () {
       then
         logging "Installing VirtualSmc.efi..."
         # Update the EFI driver
-        local driver_path=$(find "${reponame}" -name VirtualSmc.efi)
+        local driver_path
+        driver_path=$(find "${reponame}" -name VirtualSmc.efi)
         cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
         
         # Update our SMC sensor kexts
         for smc_kext in $(ls "EFI_Backup_${today}/CLOVER/kexts/Other/" | grep -E "(^SMC)")
         do
           logging "Installing ${smc_kext}..."
-          local smc_kext_path=$(find "${reponame}" -name "${smc_kext}")
+          local smc_kext_path
+          smc_kext_path=$(find "${reponame}" -name "${smc_kext}")
           cp -r "${smc_kext_path}" /Volumes/EFI/EFI/CLOVER/kexts/Other/
         done
       fi
@@ -162,26 +168,31 @@ install_kext () {
       rm -rf "${reponame}"
       ;;
     VoodooI2C)
-      local reponame=${1}
+      local reponame
+      reponame=${1}
       
       logging "Getting download URL for $reponame..."
       # Use the GitHub API to get the link to the latest release of the given repo
-      local url=https://api.github.com/repos/alexandred/${reponame}/releases/latest
-      local url=$(curl "${url}" 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["assets"][1]["browser_download_url"]')
+      local url
+      url=https://api.github.com/repos/alexandred/${reponame}/releases/latest
+      url=$(curl "${url}" 2> /dev/null \
+        | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["assets"][1]["browser_download_url"]')
       
       # Download the kext
       get_zip "${url}" "${reponame}"
 
       logging "Installing ${reponame}.kext..."
       # Get the path to the kext
-      local kext_path=$(find "${reponame}" -name "${reponame}.kext")
+      local kext_path
+      kext_path=$(find "${reponame}" -name "${reponame}.kext")
       # Put the kext in the EFI partition
       cp -r "${kext_path}" /Volumes/EFI/EFI/CLOVER/kexts/Other/
 
       for i2c_kext in $(ls "EFI_Backup_${today}/CLOVER/kexts/Other/" | grep -E "VoodooI2C[A-Z]")
       do
         logging "Installing ${i2c_kext}..."
-        local i2c_kext_path=$(find "${reponame}" -name "${i2c_kext}")
+        local i2c_kext_path
+        i2c_kext_path=$(find "${reponame}" -name "${i2c_kext}")
         cp -r "${i2c_kext_path}" /Volumes/EFI/EFI/CLOVER/kexts/Other/
       done
 
@@ -190,23 +201,28 @@ install_kext () {
       rm -rf "${reponame}"
       ;;
     RealtekRTL8111|IntelMausiEthernet|VoodooPS2Controller)
-      local reponame=${1}
+      local reponame
+      reponame=${1}
 
       logging "Getting download URL for ${reponame}..."
       case "${1}" in
         RealtekRTL8111)
-        local url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-realtek-network/downloads
+        local url
+        url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-realtek-network/downloads
         ;;
         IntelMausiEthernet)
-        local url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-intel-network/downloads
+        local url
+        url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-intel-network/downloads
         ;;
         VoodooPS2Controller)
-        local url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-voodoo-ps2-controller/downloads
+        local url
+        url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-voodoo-ps2-controller/downloads
         ;;
       esac
 
       # Use the BitBucket API to get the download link of the latest release
-      local url=$(curl "${url}" 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
+      local url
+      url=$(curl "${url}" 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
       
       # Download the kext
       get_zip "${url}" "${reponame}"
@@ -220,12 +236,15 @@ install_kext () {
       rm -rf "${reponame}"
       ;;
     FakePCIID)
-      local reponame=${1}
+      local reponame
+      reponame=${1}
 
       logging "Getting download URL for ${reponame}..."
-      local url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-fake-pci-id/downloads
+      local url
+      url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-fake-pci-id/downloads
       # Use the BitBucket API to get the download link of the latest release
-      local url=$(curl "${url}" 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
+      url=$(curl "${url}" 2> /dev/null \
+        | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
       
       # Download the kext
       get_zip "${url}" "${reponame}"
@@ -237,7 +256,8 @@ install_kext () {
       for fakepci_kext in $(ls "EFI_Backup_${today}/CLOVER/kexts/Other/" | grep -E "FakePCIID_[A-Z]")
       do
         logging "Installing ${fakepci_kext}..."
-        local fakepci_kext_path=$(find "${reponame}" -name "${fakepci_kext}")
+        local fakepci_kext_path
+        fakepci_kext_path=$(find "${reponame}" -name "${fakepci_kext}")
         cp -r "${fakepci_kext_path}" /Volumes/EFI/EFI/CLOVER/kexts/Other/
       done
       
@@ -246,12 +266,15 @@ install_kext () {
       rm -rf "${reponame}"
       ;;
     BrcmPatchRAM*)
-      local reponame=${1}
+      local reponame
+      reponame=${1}
 
       logging "Getting download URL for ${reponame}..."
-      local url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-brcmpatchram/downloads
+      local url
+      url=https://api.bitbucket.org/2.0/repositories/RehabMan/os-x-brcmpatchram/downloads
       # Use the BitBucket API to get the download link of the latest release
-      local url=$(curl "${url}" 2> /dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
+      url=$(curl "${url}" 2> /dev/null \
+        | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["values"][0]["links"]["self"]["href"]')
       
       # Download the kext
       get_zip "${url}" "${reponame}"
@@ -263,7 +286,8 @@ install_kext () {
       for brcm_kext in $(ls "EFI_Backup_${today}/CLOVER/kexts/Other/" | grep -E "BrcmFirmware[A-Z]" | grep -v "${reponame}.kext")
       do
         logging "Installing ${brcm_kext}..."
-        local brcm_kext_path=$(find "${reponame}" -name "${brcm_kext}")
+        local brcm_kext_path
+        brcm_kext_path=$(find "${reponame}" -name "${brcm_kext}")
         cp -r "${brcm_kext_path}" /Volumes/EFI/EFI/CLOVER/kexts/Other/
       done
       
@@ -281,14 +305,18 @@ install_kext () {
 
 get_zip() {
   # This function downloads a zip file, and extracts it
-  local url=${1}
-  local reponame=${2}
+  local url
+  url=${1}
+  local reponame
+  reponame=${2}
+
   # Download it
   logging "Downloading ${reponame}..."
   curl -OJL "${url}" &> /dev/null
 
   # Get the name of the file we downloaded
-  local zip_name=${url##*'/'}
+  local zip_name
+  zip_name=${url##*'/'}
 
   # Extract the archive
   logging "Unzipping ${zip_name}..."
@@ -312,8 +340,10 @@ clover_configure(){
   for drivername in $(ls "EFI_Backup_${today}/CLOVER/drivers64UEFI" | grep -v HFSPlus.efi | grep -v VirtualSmc.efi)
   do
     logging "Installing ${drivername}..."
-    local driverpath=$(find -f /Volumes/${1}/EFI/CLOVER/drivers* -name "${drivername}" | grep "UEFI")
-    cp "${driverpath}" /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+    local driver_path
+    driver_path=$(find -f /Volumes/${1}/EFI/CLOVER/drivers* -name "${drivername}" \
+      | grep "UEFI")
+    cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
   done
 
   # Bring HFSPlus.efi over from the backup
