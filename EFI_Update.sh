@@ -186,7 +186,7 @@ clover_prep() {
   logging "Creating fresh Clover installation..."
 
   # Create the directory structure
-  if ! (mkdir -p /Volumes/EFI/EFI/BOOT /Volumes/EFI/EFI/CLOVER/kexts/Other /Volumes/EFI/EFI/CLOVER/drivers64UEFI)
+  if ! (mkdir -p /Volumes/EFI/EFI/BOOT /Volumes/EFI/EFI/CLOVER/kexts/Other /Volumes/EFI/EFI/CLOVER/drivers/UEFI)
   then
     logging "Prepping new Clover install failed. Exiting..."
     exit 1
@@ -256,7 +256,7 @@ install_kext () {
         # Update the EFI driver
         local driver_path
         driver_path=$(find "${reponame}" -name VirtualSmc.efi)
-        cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+        cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/UEFI/
         
         # Update our SMC sensor kexts
         for smc_kext in $(ls "EFI_Backup_${today}/CLOVER/kexts/Other/" | grep -E "(^SMC)")
@@ -529,30 +529,30 @@ clover_configure(){
   # HFSPlus.efi is skipped because it doesn't change, though we could sum the one on GitHub against the current one
   # VirtualSMC.efi is in the VirtualSMC release package, so it is updated when VirtualSMC.kext is updated
   logging "Installing latest Clover drivers..."
-  for drivername in $(ls "EFI_Backup_${today}/CLOVER/drivers64UEFI" | grep -v HFSPlus.efi | grep -v VirtualSmc.efi)
+  for drivername in $(ls "EFI_Backup_${today}/CLOVER/drivers/UEFI" | grep -v HFSPlus.efi | grep -v VirtualSmc.efi)
   do
     logging "Installing ${drivername}..."
     local driver_path
     driver_path=$(find /Volumes/${1}/EFI/CLOVER/drivers* -name "${drivername}" \
-      | grep "UEFI")
+      | grep -v "BIOS")
 
     # If downloading or extracting the kext failed in any way, fail safe and grab the old one from the backup
     if [ ${?} -ne 0 ]
     then
       logging "Unable to get ${drivername} from the Clover ISO..."
       logging "Copying ${drivername} from the EFI backup..."
-      cp -r "EFI_Backup_${today}/CLOVER/drivers64UEFI/${drivername}" /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+      cp -r "EFI_Backup_${today}/CLOVER/drivers/UEFI/${drivername}" /Volumes/EFI/EFI/CLOVER/drivers/UEFI/
     else
-      cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+      cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/drivers/UEFI/
     fi
   done
 
   # Bring HFSPlus.efi over from the backup
   logging "Copying HFSPlus.efi from the EFI backup..."
   
-  if [ -f "EFI_Backup_${today}/CLOVER/drivers64UEFI/HFSPlus.efi" ]
+  if [ -f "EFI_Backup_${today}/CLOVER/drivers/UEFI/HFSPlus.efi" ]
   then
-    cp "EFI_Backup_${today}/CLOVER/drivers64UEFI/HFSPlus.efi" /Volumes/EFI/EFI/CLOVER/drivers64UEFI/
+    cp "EFI_Backup_${today}/CLOVER/drivers/UEFI/HFSPlus.efi" /Volumes/EFI/EFI/CLOVER/drivers/UEFI/
   else
     logging "No HFSPlus.efi found in the old Clover folder, skipping..."
   fi
@@ -588,5 +588,5 @@ diskutil unmount "${clover_source_volume}" &> /dev/null
 logging "Deleting Clover ISO..."
 rm "${clover_source_volume}.iso"
 logging "Update complete."
-mv "EFI_Update_${today}.log" /Volumes/EFI/EFI/
+cp "EFI_Update_${today}.log" /Volumes/EFI/EFI/
 efi_mount unmount
