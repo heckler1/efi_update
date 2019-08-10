@@ -533,7 +533,7 @@ clover_configure(){
   do
     logging "Installing ${drivername}..."
     local driver_path
-    driver_path=$(find -f /Volumes/${1}/EFI/CLOVER/drivers* -name "${drivername}" \
+    driver_path=$(find /Volumes/${1}/EFI/CLOVER/drivers* -name "${drivername}" \
       | grep "UEFI")
 
     # If downloading or extracting the kext failed in any way, fail safe and grab the old one from the backup
