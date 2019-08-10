@@ -256,7 +256,7 @@ install_kext () {
         # Update the EFI driver
         local driver_path
         driver_path=$(find "${reponame}" -name VirtualSmc.efi)
-        cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/UEFI/
+        cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/drivers/UEFI/
         
         # Update our SMC sensor kexts
         for smc_kext in $(ls "EFI_Backup_${today}/CLOVER/kexts/Other/" | grep -E "(^SMC)")
@@ -353,7 +353,7 @@ install_kext () {
 
       # Get the path to the kext
       local kext_path
-      kext_path=$(find "${reponame}" -name "${reponame}.kext")
+      kext_path=$(find "${reponame}" -name "${reponame}.kext" | grep "Release")
 
       # If downloading or extracting the kext failed in any way, fail safe and grab the old one from the backup
       if [ ${?} -ne 0 ]
@@ -534,7 +534,7 @@ clover_configure(){
     logging "Installing ${drivername}..."
     local driver_path
     driver_path=$(find /Volumes/${1}/EFI/CLOVER/drivers* -name "${drivername}" \
-      | grep -v "BIOS")
+      | grep "off")
 
     # If downloading or extracting the kext failed in any way, fail safe and grab the old one from the backup
     if [ ${?} -ne 0 ]
