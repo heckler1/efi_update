@@ -87,7 +87,9 @@ clover_download() {
 
   # Set the ISO name, based on the release name
   local iso
-  iso=Clover-v2.4k-${clover_release}-X64.iso
+  iso=$(ls \
+    | grep "${clover_release}" \
+    | grep -v "tar.lzma")
 
   # Mount the ISO
   logging "Mounting the Clover ISO..."
@@ -134,6 +136,8 @@ efi_mount() {
     | awk '{ print $NF}')
 
   # Validate the result
+  # This regex does exactly what I want
+  #shellcheck disable=SC2140
   if ! [[ ${efi_part_id} =~ "disk"."s". ]]
   then
     logging "Unable to determine the current EFI partition. Exiting..."
@@ -574,7 +578,7 @@ clover_configure(){
 sudo_check
 today=$(date +%Y_%m_%d)
 mkdir "EFI_Update_${today}"
-cd "EFI_Update_${today}"
+cd "EFI_Update_${today}" || (logging "Failed to move into EFI_Update directory. Exiting..."; exit 1)
 clover_download
 efi_mount
 efi_prep
