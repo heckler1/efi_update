@@ -1,4 +1,7 @@
 # EFI_Update.sh
+
+_Note: This script only works (at the time of writing) on Clover 2.5k and newer. Commits 7db6386917ea665c98838ad36c90e573f1202bc8 and before are for Clover 2.4k, and **will not** update a Clover 2.4k install to 2.5k_
+
 This script updates an existing Clover bootloader installation. It assumes that you have a [vanilla](https://hackintosh.gitbook.io/-r-hackintosh-vanilla-desktop-guide/) Clover install already set up and working. The script does the following things:
 * Backs up your EFI folder
 * Creates a new EFI folder with the latest version of Clover
