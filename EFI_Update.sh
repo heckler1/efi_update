@@ -113,6 +113,7 @@ efi_mount() {
   local boot_disk_id
   boot_disk_id=$(diskutil list \
     | grep "${boot_disk_name}" \
+    | grep -v -- "- Data" \
     | awk '{print $NF}')
 
   # Get the ID (diskX) of the current boot disk - This is actually an APFS container, stored in a partition on a physical disk
