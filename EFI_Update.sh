@@ -257,8 +257,14 @@ install_kext () {
         # Update the EFI driver
         local driver_path
         driver_path=$(find "${reponame}" -name VirtualSmc.efi)
-        cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/drivers/UEFI/
-        
+        if [[ -z "${driver_path}" ]]
+        then
+          logging "VirtualSmc.efi not found, copying from the EFI backup..."
+          cp "EFI_Backup_${today}/CLOVER/drivers/UEFI/VirtualSmc.efi" "/Volumes/EFI/EFI/CLOVER/drivers/UEFI/"
+        else
+          cp "${driver_path}" /Volumes/EFI/EFI/CLOVER/drivers/UEFI/
+        fi
+
         # Update our SMC sensor kexts
         for smc_kext in $(ls "EFI_Backup_${today}/CLOVER/kexts/Other/" | grep -E "(^SMC)")
         do
